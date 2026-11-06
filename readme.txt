@@ -4,7 +4,7 @@ Tags: chat, customer support, live chat, chatbot, woocommerce
 Requires at least: 6.3
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.2.0
+Stable tag: 0.2.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -38,6 +38,7 @@ The "Powered by NimbusPal" label is plain text inside the helper. It is shown ac
 This plugin relies on the NimbusPal service, operated by NimbusPal, to provide the helper. Nothing is sent until you choose to connect.
 
 * **When you connect:** clicking Connect takes you to the NimbusPal website with your site address, site name and a return address. After you approve, this site sends NimbusPal the address of this plugin's REST endpoint, the plugin version, whether WooCommerce is active, and a one-time code (or your API key, if you use that option).
+* **When a visitor starts a chat (once connected):** the visitor's browser asks NimbusPal for a small puzzle and solves it, which helps stop automated abuse. No third-party script is loaded and no cookies are set.
 * **When a visitor's page loads (once connected):** the visitor's browser requests the helper's settings from NimbusPal. Like any web request, this includes the visitor's IP address and the page's origin.
 * **When a visitor uses the helper:** the messages they type are sent to and stored by NimbusPal. On plans with AI answers, messages are also processed by NimbusPal's AI provider to generate a reply. The helper keeps the chat in the visitor's browser session storage for that tab.
 * **When a customer asks about an order (WooCommerce and an eligible plan only):** NimbusPal sends this site the order number and email the customer gave. If they match, this site returns the order number, status, date, total, currency, item names and quantities. Addresses, phone numbers and payment details are not returned.
@@ -73,6 +74,9 @@ No. One click is enough. An API key is available under Advanced for those who pr
 The helper's script at `assets/widget/nimbuspal-widget.js` is a built file. Its human-readable source is included in this plugin in `widget-src/`. To rebuild it, run `npm install` and `npm run build` in that folder.
 
 == Changelog ==
+
+= 0.2.1 =
+* The chat now solves a small invisible puzzle before opening, to help stop automated abuse.
 
 = 0.2.0 =
 * One-click connect: no API key to copy. Clickable email addresses and links in chats. Choice of helper characters.

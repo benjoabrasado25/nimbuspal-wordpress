@@ -1,3 +1,5 @@
+import { solveProof } from './proof.js';
+
 /**
  * The widget's API client. It has no dependencies because this source also ships
  * inside the WordPress plugin. `apps/api/test/widget-client.test.ts` keeps it in
@@ -92,12 +94,15 @@ export function createWidgetApi(options: WidgetApiOptions) {
 
   return {
     getConfig: () => request<WidgetConfig>(`/widget/config?siteKey=${encodeURIComponent(options.siteKey)}`),
-    createSession: () =>
-      request<WidgetSession>('/widget/session', {
+    createSession: async () => {
+      const { challenge, difficulty } = await request<{ challenge: string; difficulty: number }>('/widget/challenge');
+      const proof = difficulty > 0 ? { challenge, nonce: await solveProof(challenge, difficulty) } : undefined;
+      return request<WidgetSession>('/widget/session', {
         method: 'POST',
         headers: json,
-        body: JSON.stringify({ siteKey: options.siteKey }),
-      }),
+        body: JSON.stringify({ siteKey: options.siteKey, ...(proof ? { proof } : {}) }),
+      });
+    },
     sendMessage: (token: string, body: { content: string; menuItemId?: string }) =>
       request<MessageResult>('/widget/message', {
         method: 'POST',
