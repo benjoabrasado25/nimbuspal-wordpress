@@ -1,6 +1,6 @@
 <?php
 /**
- * Settings page. Messages appear on this page only: the plugin shows no admin-wide notices.
+ * The NimbusPal screen. Messages appear on this screen only: the plugin shows no admin-wide notices.
  *
  * @package NimbusPal
  */
@@ -22,6 +22,11 @@ class NimbusPal_Admin {
 	const MENU_POSITION = 3;
 
 	/**
+	 * How long someone has to finish connecting, in seconds.
+	 */
+	const STATE_LIFETIME = 900;
+
+	/**
 	 * The cloud mascot for the menu. Its eyes and smile are cut out of the shape, so
 	 * WordPress can recolor it to match each admin color scheme.
 	 */
@@ -35,10 +40,12 @@ class NimbusPal_Admin {
 		add_filter( 'plugin_action_links_' . plugin_basename( NIMBUSPAL_FILE ), array( __CLASS__, 'add_plugin_link' ) );
 		add_action( 'admin_post_nimbuspal_save', array( __CLASS__, 'handle_save' ) );
 		add_action( 'admin_post_nimbuspal_disconnect', array( __CLASS__, 'handle_disconnect' ) );
+		add_action( 'admin_post_nimbuspal_connect_start', array( __CLASS__, 'handle_connect_start' ) );
+		add_action( 'admin_post_nimbuspal_connect_return', array( __CLASS__, 'handle_connect_return' ) );
 	}
 
 	/**
-	 * Adds the settings page.
+	 * Adds the screen to the main menu.
 	 */
 	public static function add_page() {
 		add_menu_page(
@@ -64,6 +71,63 @@ class NimbusPal_Admin {
 			'<a href="' . esc_url( admin_url( 'admin.php?page=' . self::PAGE ) ) . '">' . esc_html__( 'Settings', 'nimbuspal' ) . '</a>'
 		);
 		return $links;
+	}
+
+	/**
+	 * The transient that remembers this person's connection attempt.
+	 *
+	 * @return string
+	 */
+	private static function state_key() {
+		return 'nimbuspal_connect_' . get_current_user_id();
+	}
+
+	/**
+	 * One click: sends the owner to NimbusPal to sign in and approve this site.
+	 */
+	public static function handle_connect_start() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to do this.', 'nimbuspal' ), 403 );
+		}
+		check_admin_referer( 'nimbuspal_connect_start' );
+
+		$state = wp_generate_password( 40, false );
+		set_transient( self::state_key(), $state, self::STATE_LIFETIME );
+
+		$url = add_query_arg(
+			array(
+				'site'   => rawurlencode( home_url( '/' ) ),
+				'return' => rawurlencode( admin_url( 'admin-post.php?action=nimbuspal_connect_return' ) ),
+				'state'  => $state,
+				'name'   => rawurlencode( get_bloginfo( 'name' ) ),
+			),
+			NimbusPal_Options::app_url() . '/connect'
+		);
+		// phpcs:ignore WordPress.Security.SafeRedirect.wp_redirect_wp_redirect -- NimbusPal's address is fixed, not user input.
+		wp_redirect( $url );
+		exit;
+	}
+
+	/**
+	 * NimbusPal sends the owner back here with a one-time code.
+	 */
+	public static function handle_connect_return() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( 'You do not have permission to do this.', 'nimbuspal' ), 403 );
+		}
+
+		// The state check stands in for a nonce: only the person who started can finish.
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended
+		$state = isset( $_GET['state'] ) ? sanitize_text_field( wp_unslash( $_GET['state'] ) ) : '';
+		$code  = isset( $_GET['code'] ) ? sanitize_text_field( wp_unslash( $_GET['code'] ) ) : '';
+		// phpcs:enable
+		$expected = (string) get_transient( self::state_key() );
+		delete_transient( self::state_key() );
+
+		if ( '' === $code || '' === $expected || ! hash_equals( $expected, $state ) ) {
+			self::redirect( 'expired' );
+		}
+		self::redirect( self::connect( $code ) );
 	}
 
 	/**
@@ -108,12 +172,12 @@ class NimbusPal_Admin {
 	}
 
 	/**
-	 * Exchanges the API key for this site's credentials. The key itself is not stored.
+	 * Exchanges an API key or one-click code for this site's credentials. Neither is stored.
 	 *
-	 * @param string $api_key The API key from NimbusPal.
+	 * @param string $credential The API key or code from NimbusPal.
 	 * @return string Notice code.
 	 */
-	private static function connect( $api_key ) {
+	private static function connect( $credential ) {
 		$settings = NimbusPal_Options::get();
 
 		$response = wp_remote_post(
@@ -121,7 +185,7 @@ class NimbusPal_Admin {
 			array(
 				'timeout' => 15,
 				'headers' => array(
-					'Authorization' => 'Bearer ' . $api_key,
+					'Authorization' => 'Bearer ' . $credential,
 					'Content-Type'  => 'application/json',
 				),
 				'body'    => wp_json_encode(
@@ -159,7 +223,7 @@ class NimbusPal_Admin {
 	}
 
 	/**
-	 * Returns to the settings page with a message code.
+	 * Returns to the screen with a message code.
 	 *
 	 * @param string $notice Notice code.
 	 */
@@ -185,18 +249,19 @@ class NimbusPal_Admin {
 	private static function notice_for( $code ) {
 		$notices = array(
 			'saved'        => array( 'success', __( 'Settings saved.', 'nimbuspal' ) ),
-			'connected'    => array( 'success', __( 'Connected to NimbusPal.', 'nimbuspal' ) ),
+			'connected'    => array( 'success', __( 'You are connected! The helper is now on your site.', 'nimbuspal' ) ),
 			'disconnected' => array( 'success', __( 'Disconnected from NimbusPal. The helper no longer appears on your site.', 'nimbuspal' ) ),
-			'bad_key'      => array( 'error', __( 'That API key was not accepted. Please check it and try again.', 'nimbuspal' ) ),
+			'expired'      => array( 'error', __( 'That connection expired. Please click the button to try again.', 'nimbuspal' ) ),
+			'bad_key'      => array( 'error', __( 'That was not accepted. Please click the button to try again.', 'nimbuspal' ) ),
 			'bad_site'     => array( 'error', __( 'NimbusPal could not accept this site address. Your site needs a public https:// address.', 'nimbuspal' ) ),
-			'unreachable'  => array( 'error', __( 'Could not reach NimbusPal. Please check the API address and try again.', 'nimbuspal' ) ),
+			'unreachable'  => array( 'error', __( 'Could not reach NimbusPal. Please try again in a moment.', 'nimbuspal' ) ),
 			'failed'       => array( 'error', __( 'Connecting failed. Please try again.', 'nimbuspal' ) ),
 		);
 		return isset( $notices[ $code ] ) ? $notices[ $code ] : null;
 	}
 
 	/**
-	 * Renders the settings page.
+	 * Renders the screen.
 	 */
 	public static function render_page() {
 		if ( ! current_user_can( 'manage_options' ) ) {
@@ -217,34 +282,33 @@ class NimbusPal_Admin {
 				<div class="notice notice-<?php echo esc_attr( $notice[0] ); ?>"><p><?php echo esc_html( $notice[1] ); ?></p></div>
 			<?php endif; ?>
 
-			<p>
-				<?php esc_html_e( 'NimbusPal is an external service. Connecting sends your site address, plugin version and whether WooCommerce is active. Once connected, messages visitors type in the helper are sent to NimbusPal.', 'nimbuspal' ); ?>
-			</p>
+			<div class="card" style="max-width:640px;">
+				<?php if ( $connected ) : ?>
+					<h2><?php esc_html_e( 'You are connected', 'nimbuspal' ); ?></h2>
+					<p><?php esc_html_e( 'Your helper is live. Manage conversations and settings in your NimbusPal dashboard.', 'nimbuspal' ); ?></p>
+					<p>
+						<a class="button button-primary button-hero" href="<?php echo esc_url( NimbusPal_Options::app_url() ); ?>" target="_blank" rel="noopener noreferrer"><?php esc_html_e( 'Open my dashboard', 'nimbuspal' ); ?></a>
+					</p>
+				<?php else : ?>
+					<h2><?php esc_html_e( 'Connect your site in one click', 'nimbuspal' ); ?></h2>
+					<p><?php esc_html_e( 'Sign in or create a free NimbusPal account, approve this site, and you will come straight back here, connected.', 'nimbuspal' ); ?></p>
+					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+						<input type="hidden" name="action" value="nimbuspal_connect_start" />
+						<?php wp_nonce_field( 'nimbuspal_connect_start' ); ?>
+						<?php submit_button( __( 'Connect to NimbusPal', 'nimbuspal' ), 'primary hero', 'nimbuspal-connect', false ); ?>
+					</form>
+				<?php endif; ?>
+				<p class="description" style="margin-top:12px;">
+					<?php esc_html_e( 'NimbusPal is an external service. Connecting sends your site address, plugin version and whether WooCommerce is active. Once connected, messages visitors type in the helper are sent to NimbusPal.', 'nimbuspal' ); ?>
+				</p>
+			</div>
 
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 				<input type="hidden" name="action" value="nimbuspal_save" />
 				<?php wp_nonce_field( 'nimbuspal_save' ); ?>
 
+				<h2><?php esc_html_e( 'Display', 'nimbuspal' ); ?></h2>
 				<table class="form-table" role="presentation">
-					<tr>
-						<th scope="row"><?php esc_html_e( 'Status', 'nimbuspal' ); ?></th>
-						<td>
-							<?php
-							if ( $connected ) {
-								esc_html_e( 'Connected', 'nimbuspal' );
-							} else {
-								esc_html_e( 'Not connected', 'nimbuspal' );
-							}
-							?>
-						</td>
-					</tr>
-					<tr>
-						<th scope="row"><label for="nimbuspal-api-key"><?php esc_html_e( 'API key', 'nimbuspal' ); ?></label></th>
-						<td>
-							<input type="password" id="nimbuspal-api-key" name="api_key" class="regular-text" autocomplete="off" value="" />
-							<p class="description"><?php esc_html_e( 'Used once to connect and not stored. Enter a key again to reconnect.', 'nimbuspal' ); ?></p>
-						</td>
-					</tr>
 					<tr>
 						<th scope="row"><label for="nimbuspal-placement"><?php esc_html_e( 'Where to show the helper', 'nimbuspal' ); ?></label></th>
 						<td>
@@ -269,14 +333,27 @@ class NimbusPal_Admin {
 							</select>
 						</td>
 					</tr>
-					<tr>
-						<th scope="row"><label for="nimbuspal-api-url"><?php esc_html_e( 'API address', 'nimbuspal' ); ?></label></th>
-						<td>
-							<input type="url" id="nimbuspal-api-url" name="api_url" class="regular-text code" value="<?php echo esc_attr( $settings['api_url'] ); ?>" />
-							<p class="description"><?php esc_html_e( 'Leave this as it is unless NimbusPal support asks you to change it.', 'nimbuspal' ); ?></p>
-						</td>
-					</tr>
 				</table>
+
+				<details style="max-width:640px;margin-bottom:16px;">
+					<summary style="cursor:pointer;"><?php esc_html_e( 'Advanced: connect with an API key', 'nimbuspal' ); ?></summary>
+					<table class="form-table" role="presentation">
+						<tr>
+							<th scope="row"><label for="nimbuspal-api-key"><?php esc_html_e( 'API key', 'nimbuspal' ); ?></label></th>
+							<td>
+								<input type="password" id="nimbuspal-api-key" name="api_key" class="regular-text" autocomplete="off" value="" />
+								<p class="description"><?php esc_html_e( 'Most people do not need this. Used once to connect and not stored.', 'nimbuspal' ); ?></p>
+							</td>
+						</tr>
+						<tr>
+							<th scope="row"><label for="nimbuspal-api-url"><?php esc_html_e( 'API address', 'nimbuspal' ); ?></label></th>
+							<td>
+								<input type="url" id="nimbuspal-api-url" name="api_url" class="regular-text code" value="<?php echo esc_attr( $settings['api_url'] ); ?>" />
+								<p class="description"><?php esc_html_e( 'Leave this as it is unless NimbusPal support asks you to change it.', 'nimbuspal' ); ?></p>
+							</td>
+						</tr>
+					</table>
+				</details>
 				<?php submit_button( __( 'Save settings', 'nimbuspal' ) ); ?>
 			</form>
 

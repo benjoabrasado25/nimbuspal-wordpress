@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 /**
  * Reads and writes the plugin's options.
  *
- * The API key is never stored: it is used once to connect and then discarded. The
+ * An API key or one-click code is never stored: it is used once to connect. The
  * site token is stored only as a hash, so a copy of the database cannot be used to
  * call this site's endpoints.
  */
@@ -21,6 +21,7 @@ class NimbusPal_Options {
 	const SETTINGS_OPTION   = 'nimbuspal_settings';
 	const TOKEN_HASH_OPTION = 'nimbuspal_site_token_hash';
 	const DEFAULT_API_URL   = 'https://api.nimbuspal.com';
+	const DEFAULT_APP_URL   = 'https://app.nimbuspal.com';
 
 	/**
 	 * Current settings merged with defaults.
@@ -31,13 +32,22 @@ class NimbusPal_Options {
 		$saved = get_option( self::SETTINGS_OPTION, array() );
 		return array_merge(
 			array(
-				'api_url'    => self::DEFAULT_API_URL,
+				'api_url'    => defined( 'NIMBUSPAL_API_URL' ) ? (string) NIMBUSPAL_API_URL : self::DEFAULT_API_URL,
 				'public_key' => '',
 				'placement'  => 'auto',
 				'position'   => 'bottom-right',
 			),
 			is_array( $saved ) ? $saved : array()
 		);
+	}
+
+	/**
+	 * Where customers sign in. wp-config.php can override it for local development.
+	 *
+	 * @return string
+	 */
+	public static function app_url() {
+		return defined( 'NIMBUSPAL_APP_URL' ) ? (string) NIMBUSPAL_APP_URL : self::DEFAULT_APP_URL;
 	}
 
 	/**

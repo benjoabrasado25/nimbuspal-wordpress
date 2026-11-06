@@ -4,7 +4,7 @@ Tags: chat, customer support, live chat, chatbot, woocommerce
 Requires at least: 6.3
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.1.2
+Stable tag: 0.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -35,9 +35,9 @@ The "Powered by NimbusPal" label is plain text inside the helper. It is shown ac
 
 == External services ==
 
-This plugin relies on the NimbusPal service, operated by NimbusPal, to provide the helper. Nothing is sent until you enter an API key and connect.
+This plugin relies on the NimbusPal service, operated by NimbusPal, to provide the helper. Nothing is sent until you choose to connect.
 
-* **When you connect:** your site address, the address of this plugin's REST endpoint, the plugin version, whether WooCommerce is active, and your API key.
+* **When you connect:** clicking Connect takes you to the NimbusPal website with your site address, site name and a return address. After you approve, this site sends NimbusPal the address of this plugin's REST endpoint, the plugin version, whether WooCommerce is active, and a one-time code (or your API key, if you use that option).
 * **When a visitor's page loads (once connected):** the visitor's browser requests the helper's settings from NimbusPal. Like any web request, this includes the visitor's IP address and the page's origin.
 * **When a visitor uses the helper:** the messages they type are sent to and stored by NimbusPal. On plans with AI answers, messages are also processed by NimbusPal's AI provider to generate a reply. The helper keeps the chat in the visitor's browser session storage for that tab.
 * **When a customer asks about an order (WooCommerce and an eligible plan only):** NimbusPal sends this site the order number and email the customer gave. If they match, this site returns the order number, status, date, total, currency, item names and quantities. Addresses, phone numbers and payment details are not returned.
@@ -51,7 +51,7 @@ Privacy policy: https://nimbuspal.com/privacy
 
 1. Install and activate the plugin.
 2. Click NimbusPal in your WordPress admin menu.
-3. Paste your API key from your NimbusPal account and save.
+3. Click Connect to NimbusPal, sign in or create a free account, and approve your site. You come straight back, connected.
 4. Choose where the helper should appear.
 
 == Frequently Asked Questions ==
@@ -64,15 +64,18 @@ No. WooCommerce is only needed for order lookup, tracking and product search. Th
 
 No. The plugin's store access is read-only.
 
-= Is the API key stored on my site? =
+= Do I need an API key? =
 
-No. It is used once to connect and then discarded. This site stores a public site key and a hash of a token used to check requests from NimbusPal.
+No. One click is enough. An API key is available under Advanced for those who prefer it, and is never stored. This site stores a public site key and a hash of a token used to check requests from NimbusPal.
 
 = Where is the source code for the bundled script? =
 
 The helper's script at `assets/widget/nimbuspal-widget.js` is a built file. Its human-readable source is included in this plugin in `widget-src/`. To rebuild it, run `npm install` and `npm run build` in that folder.
 
 == Changelog ==
+
+= 0.2.0 =
+* One-click connect: no API key to copy. Clickable email addresses and links in chats. Choice of helper characters.
 
 = 0.1.2 =
 * NimbusPal now has its own item, with a cloud icon, in the main admin menu.

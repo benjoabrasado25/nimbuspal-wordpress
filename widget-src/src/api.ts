@@ -10,6 +10,7 @@ export interface WidgetConfig {
   helperName: string;
   greeting: string;
   accentColor: string;
+  character?: 'nimbus' | 'mochi' | 'sprig' | 'pip' | 'tully';
   menu: Array<{ id: string; label: string }>;
   showBranding: boolean;
   mode: 'bot' | 'ai';

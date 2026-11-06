@@ -7,6 +7,7 @@ import {
   type WidgetConfig,
   type WidgetSession,
 } from './api';
+import { linkify } from './linkify';
 import { Mascot } from './mascot';
 import { createChatStorage } from './storage';
 
@@ -230,7 +231,7 @@ export function App({ apiUrl, siteKey, position, inline }: AppProps) {
     >
       <header class="header">
         <span class="avatar">
-          <Mascot />
+          <Mascot character={config.character} />
         </span>
         <div class="title">
           <div>{config.helperName}</div>
@@ -249,7 +250,7 @@ export function App({ apiUrl, siteKey, position, inline }: AppProps) {
       </header>
 
       <div class="log" ref={log} role="log" aria-live="polite" tabIndex={0} aria-label="Conversation">
-        <div class="bubble bubble-them">{config.greeting}</div>
+        <div class="bubble bubble-them">{linkify(config.greeting)}</div>
         {messages.map((message) =>
           message.sender === 'system' ? (
             <div key={message.id} class="notice">
@@ -257,7 +258,7 @@ export function App({ apiUrl, siteKey, position, inline }: AppProps) {
             </div>
           ) : (
             <div key={message.id} class={message.sender === 'visitor' ? 'bubble bubble-me' : 'bubble bubble-them'}>
-              {message.content}
+              {linkify(message.content)}
             </div>
           ),
         )}
@@ -366,7 +367,7 @@ export function App({ apiUrl, siteKey, position, inline }: AppProps) {
           onClick={() => setOpen(!open)}
         >
           <span class="launcher-face">
-            <Mascot size={38} />
+            <Mascot size={38} character={config.character} />
           </span>
           {!open && <span class="launcher-label">{label}</span>}
         </button>
