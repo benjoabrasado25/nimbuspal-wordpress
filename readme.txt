@@ -4,7 +4,7 @@ Tags: chat, customer support, live chat, chatbot, woocommerce
 Requires at least: 6.3
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.1.0
+Stable tag: 0.1.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -73,6 +73,9 @@ No. It is used once to connect and then discarded. This site stores a public sit
 The helper's script at `assets/widget/nimbuspal-widget.js` is a built file. Its human-readable source is included in this plugin in `widget-src/`. To rebuild it, run `npm install` and `npm run build` in that folder.
 
 == Changelog ==
+
+= 0.1.1 =
+* The chat button now stands out on any website. Added read-only tracking and product search, live replies from your team, and a form for leaving an email when the team is away.
 
 = 0.1.0 =
 * First version: settings page, helper on every page or by shortcode, and read-only WooCommerce order lookup.

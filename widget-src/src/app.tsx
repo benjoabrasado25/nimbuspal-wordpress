@@ -77,6 +77,20 @@ export function App({ apiUrl, siteKey, position, inline }: AppProps) {
     if (open && !inline) input.current?.focus();
   }, [open, inline]);
 
+  // Any button on the page marked data-nimbuspal-open opens the chat.
+  useEffect(() => {
+    if (!config || inline) return undefined;
+    const onClick = (event: MouseEvent) => {
+      if (event.target instanceof Element && event.target.closest('[data-nimbuspal-open]')) {
+        setOpen(true);
+      }
+    };
+    document.addEventListener('click', onClick);
+    // Lets the page show those buttons only once the chat can actually open.
+    document.documentElement.setAttribute('data-nimbuspal-ready', '');
+    return () => document.removeEventListener('click', onClick);
+  }, [config, inline]);
+
   function persist(active: WidgetSession, nextStatus: ConversationStatus, next: ChatMessage[]) {
     const updated = { ...active, status: nextStatus };
     session.current = updated;
@@ -345,13 +359,16 @@ export function App({ apiUrl, siteKey, position, inline }: AppProps) {
       {!inline && (
         <button
           type="button"
-          class="launcher"
+          class={open ? 'launcher launcher-open' : 'launcher'}
           ref={launcher}
           aria-label={open ? 'Close chat' : label}
           aria-expanded={open}
           onClick={() => setOpen(!open)}
         >
-          <Mascot size={44} />
+          <span class="launcher-face">
+            <Mascot size={38} />
+          </span>
+          {!open && <span class="launcher-label">{label}</span>}
         </button>
       )}
     </div>
