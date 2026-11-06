@@ -13,6 +13,7 @@ export interface WidgetConfig {
   menu: Array<{ id: string; label: string }>;
   showBranding: boolean;
   mode: 'bot' | 'ai';
+  teamOnline: boolean;
 }
 
 export interface WidgetSession {
@@ -33,6 +34,20 @@ export interface MessageResult {
   message: ChatMessage;
   reply: ChatMessage | null;
   status: ConversationStatus;
+}
+
+export interface UpdatesResult {
+  messages: ChatMessage[];
+  status: ConversationStatus;
+  teamOnline: boolean;
+  renewed?: { token: string; expiresAt: string };
+}
+
+export interface HandoffResult {
+  status: ConversationStatus;
+  teamOnline: boolean;
+  leadCaptured: boolean;
+  message: ChatMessage;
 }
 
 export class WidgetApiError extends Error {
@@ -72,6 +87,7 @@ export function createWidgetApi(options: WidgetApiOptions) {
   }
 
   const json = { 'content-type': 'application/json' };
+  const bearer = (token: string) => ({ authorization: `Bearer ${token}` });
 
   return {
     getConfig: () => request<WidgetConfig>(`/widget/config?siteKey=${encodeURIComponent(options.siteKey)}`),
@@ -84,7 +100,15 @@ export function createWidgetApi(options: WidgetApiOptions) {
     sendMessage: (token: string, body: { content: string; menuItemId?: string }) =>
       request<MessageResult>('/widget/message', {
         method: 'POST',
-        headers: { ...json, authorization: `Bearer ${token}` },
+        headers: { ...json, ...bearer(token) },
+        body: JSON.stringify(body),
+      }),
+    getUpdates: (token: string, after: string | null) =>
+      request<UpdatesResult>(`/widget/messages${after ? `?after=${encodeURIComponent(after)}` : ''}`, { headers: bearer(token) }),
+    requestHandoff: (token: string, body: { name?: string; email?: string; message?: string }) =>
+      request<HandoffResult>('/widget/handoff', {
+        method: 'POST',
+        headers: { ...json, ...bearer(token) },
         body: JSON.stringify(body),
       }),
   };

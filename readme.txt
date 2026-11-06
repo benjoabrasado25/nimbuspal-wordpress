@@ -20,7 +20,7 @@ What the plugin does:
 
 * Adds the helper to every page, or only to pages where you place the `[nimbuspal]` shortcode.
 * Bundles the helper's files locally. It does not load scripts from a CDN.
-* If WooCommerce is active, provides a read-only order lookup that only the NimbusPal service can call.
+* If WooCommerce is active, provides read-only order lookup, tracking and product search that only the NimbusPal service can call.
 
 The plugin never changes your store's data. It cannot issue refunds or edit orders.
 
@@ -41,6 +41,8 @@ This plugin relies on the NimbusPal service, operated by NimbusPal, to provide t
 * **When a visitor's page loads (once connected):** the visitor's browser requests the helper's settings from NimbusPal. Like any web request, this includes the visitor's IP address and the page's origin.
 * **When a visitor uses the helper:** the messages they type are sent to and stored by NimbusPal. On plans with AI answers, messages are also processed by NimbusPal's AI provider to generate a reply. The helper keeps the chat in the visitor's browser session storage for that tab.
 * **When a customer asks about an order (WooCommerce and an eligible plan only):** NimbusPal sends this site the order number and email the customer gave. If they match, this site returns the order number, status, date, total, currency, item names and quantities. Addresses, phone numbers and payment details are not returned.
+* **When a customer asks about tracking (WooCommerce and an eligible plan only):** the same order number and email check applies. If they match, this site returns the order's status and any shipment provider, tracking number, tracking link and date stored on the order.
+* **When a customer asks about products (WooCommerce and an eligible plan only):** NimbusPal sends this site the search words. This site returns the name, price, stock status and link of matching published products.
 
 Service terms: https://nimbuspal.com/terms
 Privacy policy: https://nimbuspal.com/privacy
@@ -56,7 +58,7 @@ Privacy policy: https://nimbuspal.com/privacy
 
 = Do I need WooCommerce? =
 
-No. WooCommerce is only needed for order lookup. The order endpoint does not exist on sites without it.
+No. WooCommerce is only needed for order lookup, tracking and product search. Those endpoints do not exist on sites without it.
 
 = Can the helper issue refunds? =
 

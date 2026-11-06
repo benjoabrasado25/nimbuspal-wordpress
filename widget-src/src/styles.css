@@ -104,6 +104,97 @@
   font-weight: 800;
 }
 
+.presence {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--np-muted);
+}
+
+.presence-on {
+  color: #2e6b45;
+}
+
+.presence-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #9aa1b8;
+}
+
+.presence-on .presence-dot {
+  background: #3fa66a;
+}
+
+.notice {
+  align-self: center;
+  max-width: 92%;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(31, 35, 64, 0.06);
+  color: var(--np-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.lead {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 2px 6px rgba(31, 35, 64, 0.06);
+  font-size: 14px;
+}
+
+.lead p {
+  margin: 0 0 4px;
+}
+
+.lead label {
+  font-weight: 700;
+}
+
+.lead input {
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 2px solid #b9cde6;
+  border-radius: 12px;
+  color: var(--np-ink);
+  font-size: 16px;
+}
+
+.lead-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.lead-send,
+.lead-cancel {
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.lead-send {
+  border: 0;
+  background: var(--np-accent);
+  color: var(--np-ink);
+}
+
+.lead-cancel {
+  border: 2px solid #bcddf7;
+  background: #fff;
+  color: var(--np-ink);
+}
+
 .close {
   width: 44px;
   height: 44px;
@@ -239,6 +330,7 @@ textarea {
 
 button:focus-visible,
 textarea:focus-visible,
+input:focus-visible,
 .log:focus-visible {
   outline: 3px solid #5b47b8;
   outline-offset: 2px;

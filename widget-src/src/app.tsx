@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { createWidgetApi, WidgetApiError, type ChatMessage, type ConversationStatus, type WidgetConfig, type WidgetSession } from './api';
+import {
+  createWidgetApi,
+  WidgetApiError,
+  type ChatMessage,
+  type ConversationStatus,
+  type WidgetConfig,
+  type WidgetSession,
+} from './api';
 import { Mascot } from './mascot';
 import { createChatStorage } from './storage';
 
@@ -11,6 +18,14 @@ export interface AppProps {
 }
 
 const SEND_ERROR = "Sorry, that didn't send. Please try again.";
+const POLL_MS = 4000;
+const TALK_TO_PERSON_ID = 'talk-to-a-person';
+
+function mergeMessages(current: ChatMessage[], incoming: ChatMessage[]): ChatMessage[] {
+  const known = new Set(current.map((message) => message.id));
+  const added = incoming.filter((message) => !known.has(message.id));
+  return added.length > 0 ? [...current, ...added] : current;
+}
 
 export function App({ apiUrl, siteKey, position, inline }: AppProps) {
   const api = useMemo(() => createWidgetApi({ apiUrl, siteKey }), [apiUrl, siteKey]);
@@ -21,11 +36,17 @@ export function App({ apiUrl, siteKey, position, inline }: AppProps) {
   const [open, setOpen] = useState(inline);
   const [messages, setMessages] = useState<ChatMessage[]>(saved?.messages ?? []);
   const [status, setStatus] = useState<ConversationStatus | null>(saved?.session.status ?? null);
+  const [teamOnline, setTeamOnline] = useState(false);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [leadForm, setLeadForm] = useState(false);
+  const [leadName, setLeadName] = useState('');
+  const [leadEmail, setLeadEmail] = useState('');
 
   const session = useRef<WidgetSession | null>(saved?.session ?? null);
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
   const log = useRef<HTMLDivElement>(null);
   const launcher = useRef<HTMLButtonElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
@@ -35,7 +56,9 @@ export function App({ apiUrl, siteKey, position, inline }: AppProps) {
     api
       .getConfig()
       .then((value) => {
-        if (!cancelled) setConfig(value);
+        if (cancelled) return;
+        setConfig(value);
+        setTeamOnline(value.teamOnline);
       })
       .catch((reason: unknown) => {
         // The widget stays hidden: a misconfigured helper should not disturb the site.
@@ -48,11 +71,53 @@ export function App({ apiUrl, siteKey, position, inline }: AppProps) {
 
   useEffect(() => {
     if (log.current) log.current.scrollTop = log.current.scrollHeight;
-  }, [messages, sending, open]);
+  }, [messages, sending, open, leadForm]);
 
   useEffect(() => {
     if (open && !inline) input.current?.focus();
   }, [open, inline]);
+
+  function persist(active: WidgetSession, nextStatus: ConversationStatus, next: ChatMessage[]) {
+    const updated = { ...active, status: nextStatus };
+    session.current = updated;
+    storage.save({ session: updated, messages: next });
+  }
+
+  // While the chat is open, pick up replies from the team and status changes.
+  useEffect(() => {
+    if (!open || !config) return undefined;
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const poll = async () => {
+      const active = session.current;
+      if (active && active.status !== 'closed' && !document.hidden) {
+        try {
+          const latest = messagesRef.current[messagesRef.current.length - 1]?.createdAt ?? null;
+          const updates = await api.getUpdates(active.token, latest);
+          if (!stopped) {
+            const next = mergeMessages(messagesRef.current, updates.messages);
+            setMessages(next);
+            setStatus(updates.status);
+            setTeamOnline(updates.teamOnline);
+            persist(updates.renewed ? { ...active, ...updates.renewed } : active, updates.status, next);
+          }
+        } catch (reason) {
+          if (reason instanceof WidgetApiError && reason.status === 401) {
+            session.current = null;
+            storage.clear();
+          }
+        }
+      }
+      if (!stopped) timer = setTimeout(() => void poll(), POLL_MS);
+    };
+    timer = setTimeout(() => void poll(), POLL_MS);
+
+    return () => {
+      stopped = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [open, config, api]);
 
   async function ensureSession(): Promise<WidgetSession> {
     if (session.current) return session.current;
@@ -81,15 +146,15 @@ export function App({ apiUrl, siteKey, position, inline }: AppProps) {
         active = await ensureSession();
         result = await api.sendMessage(active.token, body);
       }
-      const next = [...messages, result.message, ...(result.reply ? [result.reply] : [])];
+      const next = mergeMessages(messagesRef.current, [result.message, ...(result.reply ? [result.reply] : [])]);
       setMessages(next);
       setStatus(result.status);
-      storage.save({ session: { ...active, status: result.status }, messages: next });
+      persist(active, result.status, next);
     } catch (reason) {
       if (reason instanceof WidgetApiError && reason.code === 'conversation_closed') {
         session.current = null;
         storage.clear();
-        setStatus('closed');
+        setStatus(null);
         setError('This chat has ended. Send a new message to start another.');
       } else if (reason instanceof WidgetApiError && reason.code === 'rate_limited') {
         setError(reason.message);
@@ -102,6 +167,33 @@ export function App({ apiUrl, siteKey, position, inline }: AppProps) {
     }
   }
 
+  async function askForPerson(details: { name?: string; email?: string } = {}) {
+    if (sending) return;
+    setSending(true);
+    setError(null);
+    try {
+      const active = await ensureSession();
+      const result = await api.requestHandoff(active.token, details);
+      const next = mergeMessages(messagesRef.current, [result.message]);
+      setMessages(next);
+      setStatus(result.status);
+      setTeamOnline(result.teamOnline);
+      setLeadForm(false);
+      persist(active, result.status, next);
+    } catch (reason) {
+      if (reason instanceof WidgetApiError && reason.code === 'email_required') {
+        setTeamOnline(false);
+        setLeadForm(true);
+      } else if (reason instanceof WidgetApiError && reason.code === 'invalid_request') {
+        setError('Please check your email address.');
+      } else {
+        setError(SEND_ERROR);
+      }
+    } finally {
+      setSending(false);
+    }
+  }
+
   function close() {
     setOpen(false);
     launcher.current?.focus();
@@ -109,7 +201,8 @@ export function App({ apiUrl, siteKey, position, inline }: AppProps) {
 
   if (!config) return null;
 
-  const isBot = (status ?? config.mode) === 'bot';
+  const current = status ?? config.mode;
+  const withPerson = current === 'human';
   const label = `Chat with ${config.helperName}`;
 
   const panel = (
@@ -125,7 +218,13 @@ export function App({ apiUrl, siteKey, position, inline }: AppProps) {
         <span class="avatar">
           <Mascot />
         </span>
-        <div class="title">{config.helperName}</div>
+        <div class="title">
+          <div>{config.helperName}</div>
+          <div class={teamOnline ? 'presence presence-on' : 'presence'}>
+            <span class="presence-dot" />
+            {teamOnline ? 'Team online' : 'Team away'}
+          </div>
+        </div>
         {!inline && (
           <button type="button" class="close" onClick={close} aria-label="Close chat">
             <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
@@ -137,20 +236,64 @@ export function App({ apiUrl, siteKey, position, inline }: AppProps) {
 
       <div class="log" ref={log} role="log" aria-live="polite" tabIndex={0} aria-label="Conversation">
         <div class="bubble bubble-them">{config.greeting}</div>
-        {messages.map((message) => (
-          <div key={message.id} class={message.sender === 'visitor' ? 'bubble bubble-me' : 'bubble bubble-them'}>
-            {message.content}
-          </div>
-        ))}
-        {sending && <div class="typing">{config.helperName} is typing…</div>}
-        {isBot && !sending && (
+        {messages.map((message) =>
+          message.sender === 'system' ? (
+            <div key={message.id} class="notice">
+              {message.content}
+            </div>
+          ) : (
+            <div key={message.id} class={message.sender === 'visitor' ? 'bubble bubble-me' : 'bubble bubble-them'}>
+              {message.content}
+            </div>
+          ),
+        )}
+        {sending && !leadForm && <div class="typing">{config.helperName} is typing…</div>}
+
+        {!sending && !withPerson && !leadForm && (
           <div class="menu">
-            {config.menu.map((item) => (
-              <button type="button" class="chip" key={item.id} onClick={() => void submit(item.label, item.id)}>
-                {item.label}
-              </button>
-            ))}
+            {current === 'bot' &&
+              config.menu
+                .filter((item) => item.id !== TALK_TO_PERSON_ID)
+                .map((item) => (
+                  <button type="button" class="chip" key={item.id} onClick={() => void submit(item.label, item.id)}>
+                    {item.label}
+                  </button>
+                ))}
+            <button
+              type="button"
+              class="chip"
+              onClick={() => {
+                if (teamOnline) void askForPerson();
+                else setLeadForm(true);
+              }}
+            >
+              Talk to a person
+            </button>
           </div>
+        )}
+
+        {leadForm && (
+          <form
+            class="lead"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void askForPerson({ email: leadEmail.trim(), ...(leadName.trim() ? { name: leadName.trim() } : {}) });
+            }}
+          >
+            <p>The team is away right now. Leave your email and they'll reply as soon as they can.</p>
+            <label for="nimbuspal-lead-name">Your name (optional)</label>
+            <input id="nimbuspal-lead-name" type="text" maxLength={120} autoComplete="name" value={leadName} onInput={(event) => setLeadName(event.currentTarget.value)} />
+            <label for="nimbuspal-lead-email">Your email</label>
+            <input id="nimbuspal-lead-email" type="email" required maxLength={254} autoComplete="email" value={leadEmail} onInput={(event) => setLeadEmail(event.currentTarget.value)} />
+            <div class="lead-actions">
+              <button type="submit" class="lead-send" disabled={sending}>
+                Send
+              </button>
+              <button type="button" class="lead-cancel" onClick={() => setLeadForm(false)}>
+                Not now
+              </button>
+            </div>
+          </form>
         )}
       </div>
 
