@@ -1,0 +1,6 @@
+# Local secrets (never commit)
+.secrets/
+
+# Rebuilding the widget from widget-src
+widget-src/node_modules/
+widget-src/dist/

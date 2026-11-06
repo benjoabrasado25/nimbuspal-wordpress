@@ -1,0 +1,7 @@
+.git
+.gitignore
+.distignore
+README.md
+tests
+widget-src/node_modules
+widget-src/dist
