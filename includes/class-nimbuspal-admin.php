@@ -10,17 +10,29 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Settings > NimbusPal.
+ * The NimbusPal screen, with its own item in the main admin menu.
  */
 class NimbusPal_Admin {
 
 	const PAGE = 'nimbuspal';
 
 	/**
+	 * Menu position. Just below Dashboard, which is 2.
+	 */
+	const MENU_POSITION = 3;
+
+	/**
+	 * The cloud mascot for the menu. Its eyes and smile are cut out of the shape, so
+	 * WordPress can recolor it to match each admin color scheme.
+	 */
+	const MENU_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 96"><path fill="black" fill-rule="evenodd" d="M32 84 C14 84 8 66 18 56 C10 42 24 26 40 32 C44 16 62 8 76 16 C90 10 106 22 102 38 C114 42 116 62 104 70 C102 80 94 84 86 84 Z M49 49 a7 7 0 1 0 0.01 0 Z M73 49 a7 7 0 1 0 0.01 0 Z M50 63 C53 75 69 75 72 63 C68 67 54 67 50 63 Z"/></svg>';
+
+	/**
 	 * Hooks the admin screens and form handlers.
 	 */
 	public static function init() {
 		add_action( 'admin_menu', array( __CLASS__, 'add_page' ) );
+		add_filter( 'plugin_action_links_' . plugin_basename( NIMBUSPAL_FILE ), array( __CLASS__, 'add_plugin_link' ) );
 		add_action( 'admin_post_nimbuspal_save', array( __CLASS__, 'handle_save' ) );
 		add_action( 'admin_post_nimbuspal_disconnect', array( __CLASS__, 'handle_disconnect' ) );
 	}
@@ -29,13 +41,29 @@ class NimbusPal_Admin {
 	 * Adds the settings page.
 	 */
 	public static function add_page() {
-		add_options_page(
+		add_menu_page(
 			__( 'NimbusPal', 'nimbuspal' ),
 			__( 'NimbusPal', 'nimbuspal' ),
 			'manage_options',
 			self::PAGE,
-			array( __CLASS__, 'render_page' )
+			array( __CLASS__, 'render_page' ),
+			'data:image/svg+xml;base64,' . base64_encode( self::MENU_ICON_SVG ), // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
+			self::MENU_POSITION
 		);
+	}
+
+	/**
+	 * Adds a Settings link to the plugin's row on the Plugins screen.
+	 *
+	 * @param array $links Existing links.
+	 * @return array
+	 */
+	public static function add_plugin_link( $links ) {
+		array_unshift(
+			$links,
+			'<a href="' . esc_url( admin_url( 'admin.php?page=' . self::PAGE ) ) . '">' . esc_html__( 'Settings', 'nimbuspal' ) . '</a>'
+		);
+		return $links;
 	}
 
 	/**
@@ -142,7 +170,7 @@ class NimbusPal_Admin {
 					'page'             => self::PAGE,
 					'nimbuspal_notice' => $notice,
 				),
-				admin_url( 'options-general.php' )
+				admin_url( 'admin.php' )
 			)
 		);
 		exit;

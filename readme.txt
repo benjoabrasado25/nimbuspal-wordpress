@@ -4,7 +4,7 @@ Tags: chat, customer support, live chat, chatbot, woocommerce
 Requires at least: 6.3
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.1.1
+Stable tag: 0.1.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -50,7 +50,7 @@ Privacy policy: https://nimbuspal.com/privacy
 == Installation ==
 
 1. Install and activate the plugin.
-2. Go to Settings > NimbusPal.
+2. Click NimbusPal in your WordPress admin menu.
 3. Paste your API key from your NimbusPal account and save.
 4. Choose where the helper should appear.
 
@@ -73,6 +73,9 @@ No. It is used once to connect and then discarded. This site stores a public sit
 The helper's script at `assets/widget/nimbuspal-widget.js` is a built file. Its human-readable source is included in this plugin in `widget-src/`. To rebuild it, run `npm install` and `npm run build` in that folder.
 
 == Changelog ==
+
+= 0.1.2 =
+* NimbusPal now has its own item, with a cloud icon, in the main admin menu.
 
 = 0.1.1 =
 * The chat button now stands out on any website. Added read-only tracking and product search, live replies from your team, and a form for leaving an email when the team is away.
