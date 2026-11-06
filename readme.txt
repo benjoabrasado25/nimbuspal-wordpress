@@ -1,5 +1,5 @@
 === NimbusPal ===
-Contributors: nimbuspal
+Contributors: benjoabrasado25
 Tags: chat, customer support, live chat, chatbot, woocommerce
 Requires at least: 6.3
 Tested up to: 7.1

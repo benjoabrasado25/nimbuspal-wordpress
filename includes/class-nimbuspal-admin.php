@@ -141,7 +141,7 @@ class NimbusPal_Admin {
 
 		$placement = isset( $_POST['placement'] ) ? sanitize_key( wp_unslash( $_POST['placement'] ) ) : 'auto';
 		$position  = isset( $_POST['position'] ) ? sanitize_key( wp_unslash( $_POST['position'] ) ) : 'bottom-right';
-		$api_url   = isset( $_POST['api_url'] ) ? esc_url_raw( trim( wp_unslash( $_POST['api_url'] ) ), array( 'https', 'http' ) ) : '';
+		$api_url   = isset( $_POST['api_url'] ) ? esc_url_raw( trim( sanitize_text_field( wp_unslash( $_POST['api_url'] ) ) ), array( 'https', 'http' ) ) : '';
 		$api_key   = isset( $_POST['api_key'] ) ? sanitize_text_field( wp_unslash( $_POST['api_key'] ) ) : '';
 
 		NimbusPal_Options::update(
