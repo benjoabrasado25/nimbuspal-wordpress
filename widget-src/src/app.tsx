@@ -20,12 +20,54 @@ export interface AppProps {
 
 const SEND_ERROR = "Sorry, that didn't send. Please try again.";
 const POLL_MS = 4000;
+const POLL_WHILE_WAITING_MS = 1500;
+const STOP_WAITING_AFTER_MS = 60_000;
 const TALK_TO_PERSON_ID = 'talk-to-a-person';
 
 function mergeMessages(current: ChatMessage[], incoming: ChatMessage[]): ChatMessage[] {
   const known = new Set(current.map((message) => message.id));
-  const added = incoming.filter((message) => !known.has(message.id));
+  // A message still on its way shows once, not again when an update arrives first.
+  const onTheirWay = new Set(current.filter((message) => message.state === 'sending').map((message) => message.content));
+  const added = incoming.filter((message) => !known.has(message.id) && !(message.sender === 'visitor' && onTheirWay.has(message.content)));
   return added.length > 0 ? [...current, ...added] : current;
+}
+
+const onService = (messages: ChatMessage[]) => messages.filter((message) => !message.state);
+
+function timeOf(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+function MessageStatus({ message, onRetry }: { message: ChatMessage; onRetry: () => void }) {
+  if (message.state === 'failed') {
+    return (
+      <div class="meta meta-failed">
+        Not sent ·{' '}
+        <button type="button" class="retry" onClick={onRetry}>
+          Try again
+        </button>
+      </div>
+    );
+  }
+  const sending = message.state === 'sending';
+  return (
+    <div class="meta">
+      {timeOf(message.createdAt)}
+      <span class="meta-icon" role="img" aria-label={sending ? 'Sending' : 'Sent'} title={sending ? 'Sending' : 'Sent'}>
+        <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          {sending ? (
+            <>
+              <circle cx="8" cy="8" r="6" />
+              <path d="M8 4.8V8l2.2 1.4" />
+            </>
+          ) : (
+            <path d="M3 8.5l3.2 3.2L13 4.8" />
+          )}
+        </svg>
+      </span>
+    </div>
+  );
 }
 
 export function App({ apiUrl, siteKey, position, inline }: AppProps) {
@@ -40,6 +82,7 @@ export function App({ apiUrl, siteKey, position, inline }: AppProps) {
   const [teamOnline, setTeamOnline] = useState(false);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
+  const [waiting, setWaiting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [leadForm, setLeadForm] = useState(false);
   const [leadName, setLeadName] = useState('');
@@ -48,6 +91,10 @@ export function App({ apiUrl, siteKey, position, inline }: AppProps) {
   const session = useRef<WidgetSession | null>(saved?.session ?? null);
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
+  const waitingRef = useRef(false);
+  waitingRef.current = waiting;
+  const waitingSince = useRef(0);
+  const pollNow = useRef<() => void>(() => {});
   const log = useRef<HTMLDivElement>(null);
   const launcher = useRef<HTMLButtonElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
@@ -72,7 +119,7 @@ export function App({ apiUrl, siteKey, position, inline }: AppProps) {
 
   useEffect(() => {
     if (log.current) log.current.scrollTop = log.current.scrollHeight;
-  }, [messages, sending, open, leadForm]);
+  }, [messages, sending, waiting, open, leadForm]);
 
   useEffect(() => {
     if (open && !inline) input.current?.focus();
@@ -95,7 +142,7 @@ export function App({ apiUrl, siteKey, position, inline }: AppProps) {
   function persist(active: WidgetSession, nextStatus: ConversationStatus, next: ChatMessage[]) {
     const updated = { ...active, status: nextStatus };
     session.current = updated;
-    storage.save({ session: updated, messages: next });
+    storage.save({ session: updated, messages: onService(next) });
   }
 
   // While the chat is open, pick up replies from the team and status changes.
@@ -108,11 +155,18 @@ export function App({ apiUrl, siteKey, position, inline }: AppProps) {
       const active = session.current;
       if (active && active.status !== 'closed' && !document.hidden) {
         try {
-          const latest = messagesRef.current[messagesRef.current.length - 1]?.createdAt ?? null;
+          const saved = onService(messagesRef.current);
+          const latest = saved[saved.length - 1]?.createdAt ?? null;
           const updates = await api.getUpdates(active.token, latest);
           if (!stopped) {
             const next = mergeMessages(messagesRef.current, updates.messages);
             setMessages(next);
+            if (waitingRef.current) {
+              const answered = updates.messages.some((message) => message.sender !== 'visitor');
+              const tooLong = Date.now() - waitingSince.current > STOP_WAITING_AFTER_MS;
+              if (answered || tooLong || updates.status === 'human' || updates.status === 'closed') setWaiting(false);
+              if (tooLong && !answered) setError("Sorry, that's taking longer than it should. You can ask again, or tap Talk to a person.");
+            }
             setStatus(updates.status);
             setTeamOnline(updates.teamOnline);
             persist(updates.renewed ? { ...active, ...updates.renewed } : active, updates.status, next);
@@ -124,12 +178,17 @@ export function App({ apiUrl, siteKey, position, inline }: AppProps) {
           }
         }
       }
-      if (!stopped) timer = setTimeout(() => void poll(), POLL_MS);
+      if (!stopped) timer = setTimeout(() => void poll(), waitingRef.current ? POLL_WHILE_WAITING_MS : POLL_MS);
     };
     timer = setTimeout(() => void poll(), POLL_MS);
+    pollNow.current = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => void poll(), POLL_WHILE_WAITING_MS);
+    };
 
     return () => {
       stopped = true;
+      pollNow.current = () => {};
       if (timer) clearTimeout(timer);
     };
   }, [open, config, api]);
@@ -143,11 +202,16 @@ export function App({ apiUrl, siteKey, position, inline }: AppProps) {
 
   async function submit(content: string, menuItemId?: string) {
     const text = content.trim();
-    if (!text || sending) return;
+    if (!text || sending || waiting) return;
+    // On screen straight away. The rest happens behind it.
+    const localId = `local-${Date.now()}`;
+    const shown: ChatMessage = { id: localId, sender: 'visitor', content: text, createdAt: new Date().toISOString(), state: 'sending' };
+    setMessages([...messagesRef.current, shown]);
+    messagesRef.current = [...messagesRef.current, shown];
     setSending(true);
     setError(null);
     setDraft('');
-    const body = menuItemId ? { content: text, menuItemId } : { content: text };
+    const body = { content: text, deferReply: true, ...(menuItemId ? { menuItemId } : {}) };
 
     try {
       let active = await ensureSession();
@@ -161,11 +225,22 @@ export function App({ apiUrl, siteKey, position, inline }: AppProps) {
         active = await ensureSession();
         result = await api.sendMessage(active.token, body);
       }
-      const next = mergeMessages(messagesRef.current, [result.message, ...(result.reply ? [result.reply] : [])]);
+      const others = messagesRef.current.filter((message) => message.id !== localId);
+      const next = mergeMessages(others, [result.message, ...(result.reply ? [result.reply] : [])]);
+      messagesRef.current = next;
       setMessages(next);
       setStatus(result.status);
       persist(active, result.status, next);
+      if (result.replyPending) {
+        waitingSince.current = Date.now();
+        waitingRef.current = true;
+        setWaiting(true);
+        pollNow.current();
+      }
     } catch (reason) {
+      const marked = messagesRef.current.map((message) => (message.id === localId ? { ...message, state: 'failed' as const } : message));
+      messagesRef.current = marked;
+      setMessages(marked);
       if (reason instanceof WidgetApiError && reason.code === 'conversation_closed') {
         session.current = null;
         storage.clear();
@@ -176,15 +251,22 @@ export function App({ apiUrl, siteKey, position, inline }: AppProps) {
       } else {
         setError(SEND_ERROR);
       }
-      setDraft(text);
     } finally {
       setSending(false);
     }
   }
 
+  function retry(message: ChatMessage) {
+    const others = messagesRef.current.filter((entry) => entry.id !== message.id);
+    messagesRef.current = others;
+    setMessages(others);
+    void submit(message.content);
+  }
+
   async function askForPerson(details: { name?: string; email?: string } = {}) {
     if (sending) return;
     setSending(true);
+    setWaiting(false);
     setError(null);
     try {
       const active = await ensureSession();
@@ -257,14 +339,15 @@ export function App({ apiUrl, siteKey, position, inline }: AppProps) {
               {message.content}
             </div>
           ) : (
-            <div key={message.id} class={message.sender === 'visitor' ? 'bubble bubble-me' : 'bubble bubble-them'}>
-              {linkify(message.content)}
+            <div key={message.id} class={message.sender === 'visitor' ? 'message-me' : 'message-them'}>
+              <div class={message.sender === 'visitor' ? 'bubble bubble-me' : 'bubble bubble-them'}>{linkify(message.content)}</div>
+              {message.sender === 'visitor' && <MessageStatus message={message} onRetry={() => retry(message)} />}
             </div>
           ),
         )}
-        {sending && !leadForm && <div class="typing">{config.helperName} is typing…</div>}
+        {(sending || waiting) && !leadForm && !withPerson && <div class="typing">{config.helperName} is typing…</div>}
 
-        {!sending && !withPerson && !leadForm && (
+        {!sending && !waiting && !withPerson && !leadForm && (
           <div class="menu">
             {current === 'bot' &&
               config.menu
@@ -343,7 +426,7 @@ export function App({ apiUrl, siteKey, position, inline }: AppProps) {
             }
           }}
         />
-        <button type="submit" class="send" disabled={sending || !draft.trim()} aria-label="Send message">
+        <button type="submit" class="send" disabled={sending || waiting || !draft.trim()} aria-label="Send message">
           <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
             <path d="M4 12l16-8-6 17-3-7z" fill="currentColor" />
           </svg>

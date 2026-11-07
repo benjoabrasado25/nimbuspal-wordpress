@@ -4,7 +4,7 @@ Tags: chat, customer support, live chat, chatbot, woocommerce
 Requires at least: 6.3
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.2.1
+Stable tag: 0.2.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -74,6 +74,9 @@ No. One click is enough. An API key is available under Advanced for those who pr
 The helper's script at `assets/widget/nimbuspal-widget.js` is a built file. Its human-readable source is included in this plugin in `widget-src/`. To rebuild it, run `npm install` and `npm run build` in that folder.
 
 == Changelog ==
+
+= 0.2.2 =
+* A visitor's message now shows the moment they send it, with the time and whether it was sent.
 
 = 0.2.1 =
 * The chat now solves a small invisible puzzle before opening, to help stop automated abuse.

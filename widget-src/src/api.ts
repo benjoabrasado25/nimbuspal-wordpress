@@ -31,12 +31,15 @@ export interface ChatMessage {
   sender: MessageSender;
   content: string;
   createdAt: string;
+  /** Only on the visitor's own messages that haven't reached the service yet. */
+  state?: 'sending' | 'failed';
 }
 
 export interface MessageResult {
   message: ChatMessage;
   reply: ChatMessage | null;
   status: ConversationStatus;
+  replyPending?: boolean;
 }
 
 export interface UpdatesResult {
@@ -103,7 +106,7 @@ export function createWidgetApi(options: WidgetApiOptions) {
         body: JSON.stringify({ siteKey: options.siteKey, ...(proof ? { proof } : {}) }),
       });
     },
-    sendMessage: (token: string, body: { content: string; menuItemId?: string }) =>
+    sendMessage: (token: string, body: { content: string; menuItemId?: string; deferReply?: boolean }) =>
       request<MessageResult>('/widget/message', {
         method: 'POST',
         headers: { ...json, ...bearer(token) },
