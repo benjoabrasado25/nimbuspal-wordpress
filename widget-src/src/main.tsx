@@ -64,8 +64,14 @@ if (document.readyState === 'loading') {
   mount(config);
 }
 
-if (learnToken && config.apiUrl) {
-  const start = () => void learnWebsite(config.apiUrl!, learnToken);
+let learning = false;
+function startLearning(token: string | null) {
+  if (!token || !config.apiUrl || learning) return;
+  learning = true;
+  const start = () => void learnWebsite(config.apiUrl!, token);
   if (document.readyState === 'complete') start();
   else window.addEventListener('load', start, { once: true });
 }
+startLearning(learnToken);
+// The link can also arrive in a tab that already shows the website, where only the part after the # changes.
+if (window.name !== LEARN_FRAME_NAME) window.addEventListener('hashchange', () => startLearning(takeLearnToken()));
