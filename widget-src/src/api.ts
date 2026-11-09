@@ -13,6 +13,8 @@ export interface WidgetConfig {
   greeting: string;
   accentColor: string;
   character?: 'nimbus' | 'mochi' | 'sprig' | 'pip' | 'tully';
+  /** The business's own picture, shown instead of the character. */
+  avatarUrl?: string | null;
   menu: Array<{ id: string; label: string }>;
   showBranding: boolean;
   mode: 'bot' | 'ai';

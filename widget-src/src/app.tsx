@@ -8,7 +8,7 @@ import {
   type WidgetSession,
 } from './api';
 import { linkify } from './linkify';
-import { Mascot } from './mascot';
+import { HelperFace } from './mascot';
 import { createChatStorage } from './storage';
 
 export interface AppProps {
@@ -313,7 +313,7 @@ export function App({ apiUrl, siteKey, position, inline }: AppProps) {
     >
       <header class="header">
         <span class="avatar">
-          <Mascot character={config.character} />
+          <HelperFace character={config.character} avatarUrl={config.avatarUrl} />
         </span>
         <div class="title">
           <div>{config.helperName}</div>
@@ -450,7 +450,7 @@ export function App({ apiUrl, siteKey, position, inline }: AppProps) {
           onClick={() => setOpen(!open)}
         >
           <span class="launcher-face">
-            <Mascot size={38} character={config.character} />
+            <HelperFace size={38} character={config.character} avatarUrl={config.avatarUrl} />
           </span>
           {!open && <span class="launcher-label">{label}</span>}
         </button>

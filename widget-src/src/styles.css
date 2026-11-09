@@ -424,3 +424,9 @@ input:focus-visible,
   text-decoration: underline;
   cursor: pointer;
 }
+
+.face-photo {
+  display: block;
+  border-radius: 50%;
+  object-fit: cover;
+}

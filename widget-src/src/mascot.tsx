@@ -71,3 +71,11 @@ export function Mascot({ size = 34, character = 'nimbus' }: { size?: number; cha
     </svg>
   );
 }
+
+/** The business's own picture when it has one, otherwise its character. */
+export function HelperFace({ size = 34, character, avatarUrl }: { size?: number; character?: Character | undefined; avatarUrl?: string | null | undefined }) {
+  if (avatarUrl && avatarUrl.startsWith('https://')) {
+    return <img class="face-photo" src={avatarUrl} width={size} height={size} alt="" loading="lazy" referrerpolicy="no-referrer" />;
+  }
+  return <Mascot size={size} character={character} />;
+}
