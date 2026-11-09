@@ -1,5 +1,6 @@
 import { render } from 'preact';
 import { App, type AppProps } from './app';
+import { LEARN_FRAME_NAME, learnWebsite, takeLearnToken } from './learn';
 import styles from './styles.css?inline';
 
 interface NimbusPalConfig {
@@ -27,7 +28,8 @@ function readConfig(script: HTMLOrSVGScriptElement | null): NimbusPalConfig {
 }
 
 function mount(config: NimbusPalConfig) {
-  if (window.__nimbusPalMounted) return;
+  // A page opened out of sight by "Learn from my website" doesn't need its own chat.
+  if (window.__nimbusPalMounted || window.name === LEARN_FRAME_NAME) return;
   if (!config.apiUrl || !config.siteKey) {
     console.warn('[NimbusPal] The helper needs apiUrl and siteKey.');
     return;
@@ -55,8 +57,15 @@ function mount(config: NimbusPalConfig) {
 }
 
 const config = readConfig(document.currentScript);
+const learnToken = window.name === LEARN_FRAME_NAME ? null : takeLearnToken();
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => mount(config), { once: true });
 } else {
   mount(config);
+}
+
+if (learnToken && config.apiUrl) {
+  const start = () => void learnWebsite(config.apiUrl!, learnToken);
+  if (document.readyState === 'complete') start();
+  else window.addEventListener('load', start, { once: true });
 }
