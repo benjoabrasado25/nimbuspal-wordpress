@@ -17,11 +17,6 @@ class NimbusPal_Admin {
 	const PAGE = 'nimbuspal';
 
 	/**
-	 * Menu position. Just below Dashboard, which is 2.
-	 */
-	const MENU_POSITION = 3;
-
-	/**
 	 * How long someone has to finish connecting, in seconds.
 	 */
 	const STATE_LIFETIME = 900;
@@ -45,7 +40,8 @@ class NimbusPal_Admin {
 	}
 
 	/**
-	 * Adds the screen to the main menu.
+	 * Adds the screen to the main menu. No position is given, so WordPress puts it at the end,
+	 * below its own items.
 	 */
 	public static function add_page() {
 		add_menu_page(
@@ -54,8 +50,7 @@ class NimbusPal_Admin {
 			'manage_options',
 			self::PAGE,
 			array( __CLASS__, 'render_page' ),
-			'data:image/svg+xml;base64,' . base64_encode( self::MENU_ICON_SVG ), // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
-			self::MENU_POSITION
+			'data:image/svg+xml;base64,' . base64_encode( self::MENU_ICON_SVG ) // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
 		);
 	}
 
