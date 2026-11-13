@@ -210,6 +210,8 @@ class NimbusPal_Admin {
 						'platform'          => 'wordpress',
 						'pluginVersion'     => NIMBUSPAL_VERSION,
 						'woocommerceActive' => NimbusPal_Rest::woocommerce_active(),
+						// Also in the body: some hosts, such as WordPress Playground, drop the Authorization header.
+						'credential'        => $credential,
 					)
 				),
 			)
