@@ -4,7 +4,7 @@ Tags: chat, customer support, live chat, chatbot, woocommerce
 Requires at least: 6.3
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.2.6
+Stable tag: 0.2.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -76,6 +76,9 @@ No. One click is enough. An API key is available under Advanced for those who pr
 The helper's script at `assets/widget/nimbuspal-widget.js` is a built file. Its human-readable source is included in this plugin in `widget-src/`. To rebuild it, run `npm install` and `npm run build` in that folder.
 
 == Changelog ==
+
+= 0.2.7 =
+* Connect to NimbusPal now opens in a new tab when WordPress runs inside a frame, such as WordPress Playground.
 
 = 0.2.6 =
 * The NimbusPal menu item now sits at the end of the admin menu, below WordPress's own items.

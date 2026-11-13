@@ -3,7 +3,7 @@
  * Plugin Name:       NimbusPal
  * Plugin URI:        https://nimbuspal.com/
  * Description:       Adds a friendly customer support helper to your site. Connects to the external NimbusPal service.
- * Version:           0.2.6
+ * Version:           0.2.7
  * Requires at least: 6.3
  * Requires PHP:      7.4
  * Author:            NimbusPal
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'NIMBUSPAL_VERSION', '0.2.6' );
+define( 'NIMBUSPAL_VERSION', '0.2.7' );
 define( 'NIMBUSPAL_FILE', __FILE__ );
 define( 'NIMBUSPAL_DIR', plugin_dir_path( __FILE__ ) );
 

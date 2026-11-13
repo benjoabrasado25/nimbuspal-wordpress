@@ -37,6 +37,26 @@ class NimbusPal_Admin {
 		add_action( 'admin_post_nimbuspal_disconnect', array( __CLASS__, 'handle_disconnect' ) );
 		add_action( 'admin_post_nimbuspal_connect_start', array( __CLASS__, 'handle_connect_start' ) );
 		add_action( 'admin_post_nimbuspal_connect_return', array( __CLASS__, 'handle_connect_return' ) );
+		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'enqueue' ) );
+	}
+
+	/**
+	 * When wp-admin runs inside a frame (WordPress Playground, for example), Connect opens in a
+	 * new tab: NimbusPal's sign-in page refuses to load inside a frame, so no one can be tricked
+	 * into approving a site.
+	 *
+	 * @param string $hook The current admin screen.
+	 */
+	public static function enqueue( $hook ) {
+		if ( 'toplevel_page_' . self::PAGE !== $hook ) {
+			return;
+		}
+		wp_register_script( 'nimbuspal-admin', false, array(), NIMBUSPAL_VERSION, true );
+		wp_enqueue_script( 'nimbuspal-admin' );
+		wp_add_inline_script(
+			'nimbuspal-admin',
+			'(function(){var f=document.getElementById("nimbuspal-connect-form");if(f&&window.top!==window.self){f.target="_blank";}})();'
+		);
 	}
 
 	/**
@@ -287,7 +307,7 @@ class NimbusPal_Admin {
 				<?php else : ?>
 					<h2><?php esc_html_e( 'Connect your site in one click', 'nimbuspal' ); ?></h2>
 					<p><?php esc_html_e( 'Sign in or create a free NimbusPal account, approve this site, and you will come straight back here, connected.', 'nimbuspal' ); ?></p>
-					<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+					<form id="nimbuspal-connect-form" method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 						<input type="hidden" name="action" value="nimbuspal_connect_start" />
 						<?php wp_nonce_field( 'nimbuspal_connect_start' ); ?>
 						<?php submit_button( __( 'Connect to NimbusPal', 'nimbuspal' ), 'primary hero', 'nimbuspal-connect', false ); ?>
